@@ -20,7 +20,19 @@ dahzah-reagent-module/
 │   ├── reagent_api.py                          # API 路由
 │   ├── reagent_service.py                       # 业务逻辑
 │   ├── reagent_schemas.py                      # 数据模型
-│   └── 20260609_0001_quality_reagent.py        # 数据库迁移脚本
+│   ├── ai_config.py                            # AI配置管理
+│   ├── ai_config_api.py                        # AI配置API
+│   ├── ai_log_api.py                          # AI日志API
+│   ├── ai/                                      # AI模块
+│   │   ├── __init__.py
+│   │   ├── models.py                           # AI日志模型
+│   │   └── service.py                          # AI日志服务
+│   ├── alembic/                                # 数据库迁移
+│   │   └── versions/
+│   │       ├── 20260609_0001_quality_reagent.py  # 试剂表迁移
+│   │       └── 20260609_0003_ai_config.py        # AI配置表迁移
+│   ├── alembic.ini                             # Alembic配置
+│   └── env.py                                   # 迁移环境配置
 ├── frontend/                                   # 前端模块
 │   └── src/
 │       ├── actions/
@@ -46,8 +58,19 @@ cp reagent_api.py 你的后端路径/app/modules/quality/
 cp reagent_service.py 你的后端路径/app/modules/quality/
 cp reagent_schemas.py 你的后端路径/app/modules/quality/
 
+# 复制 AI 配置相关文件
+cp ai_config.py 你的后端路径/app/modules/quality/
+cp ai_config_api.py 你的后端路径/app/modules/v1/
+cp ai_log_api.py 你的后端路径/app/modules/v1/
+mkdir -p 你的后端路径/app/modules/ai
+cp -r ai/* 你的后端路径/app/modules/ai/
+
 # 复制数据库迁移脚本
 cp 20260609_0001_quality_reagent.py 你的后端路径/alembic/versions/
+cp 20260609_0003_ai_config.py 你的后端路径/alembic/versions/
+cp alembic.ini 你的后端路径/
+cp alembic/env.py 你的后端路径/alembic/
+cp alembic/script.py.mako 你的后端路径/alembic/
 ```
 
 #### 1.2 注册路由
@@ -123,6 +146,8 @@ NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
 
 ## API 接口
 
+### 试剂管理 API
+
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | GET | /quality/reagent/list | 获取试剂列表（支持分页、关键词搜索） |
@@ -133,6 +158,26 @@ NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
 | POST | /quality/reagent/recognize | AI 识别试剂标签图片 |
 | GET | /quality/reagent/next-lot-no | 获取下一个入场批号 |
 | GET | /quality/reagent/export | 导出试剂台账 Excel |
+
+### AI 配置 API
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /api/v1/ai-config/ | 获取AI配置 |
+| POST | /api/v1/ai-config/ | 更新AI配置 |
+| GET | /api/v1/ai-config/status | 获取AI服务状态 |
+| POST | /api/v1/ai-config/test | 测试AI连接 |
+
+### AI 日志 API
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /api/v1/ai-logs/ | 获取AI日志列表 |
+| GET | /api/v1/ai-logs/{id} | 获取日志详情 |
+| POST | /api/v1/ai-logs/ | 创建日志记录 |
+| GET | /api/v1/ai-logs/stats/summary | 获取AI使用统计 |
+| DELETE | /api/v1/ai-logs/{id} | 删除日志记录 |
+| DELETE | /api/v1/ai-logs/cleanup | 清理旧日志 |
 
 ---
 
@@ -161,6 +206,58 @@ NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
 | created_by | VARCHAR(100) | 创建人 |
 | created_at | TIMESTAMP | 创建时间 |
 | updated_at | TIMESTAMP | 更新时间 |
+
+---
+
+## AI 配置表结构
+
+### qms_ai_config
+
+AI功能全局配置表，存储在 `qms` schema 下。
+
+| 字段名 | 类型 | 说明 |
+|--------|------|------|
+| id | SERIAL | 主键 |
+| key | VARCHAR(100) | 配置键名 |
+| value | TEXT | 配置值(JSON格式) |
+| description | TEXT | 配置描述 |
+| created_at | TIMESTAMP | 创建时间 |
+| updated_at | TIMESTAMP | 更新时间 |
+
+### qms_ai_log
+
+AI交互日志表，记录所有AI功能的调用。
+
+| 字段名 | 类型 | 说明 |
+|--------|------|------|
+| id | SERIAL | 主键 |
+| user_id | VARCHAR(100) | 用户ID |
+| session_id | VARCHAR(100) | 会话ID |
+| module | VARCHAR(50) | 模块名称 |
+| action | VARCHAR(50) | 操作类型 |
+| prompt | TEXT | 发送的提示词 |
+| response | TEXT | AI响应内容 |
+| model | VARCHAR(100) | 使用的模型 |
+| tokens_used | INTEGER | 使用的token数 |
+| status | VARCHAR(20) | 状态(success/failed) |
+| error_message | TEXT | 错误信息 |
+| request_params | JSONB | 请求参数 |
+| response_time | INTEGER | 响应时间(毫秒) |
+| created_at | TIMESTAMP | 创建时间 |
+
+### AI 配置项
+
+| 配置项 | 类型 | 默认值 | 说明 |
+|--------|------|--------|------|
+| enabled | boolean | false | 是否启用AI功能 |
+| api_key | string | - | API密钥 |
+| base_url | string | - | API基础URL |
+| model | string | MiniMax/VL-01 | 模型名称 |
+| max_tokens | integer | 2048 | 最大token数 |
+| temperature | float | 0.7 | 温度参数 |
+| prompt_template | string | - | 通用提示词模板 |
+| image_analysis_prompt | string | - | 图片分析提示词 |
+| label_recognition_prompt | string | - | 标签识别提示词 |
 
 ---
 
