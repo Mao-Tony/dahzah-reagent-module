@@ -17,90 +17,126 @@
 ```
 dahzah-reagent-module/
 ├── backend/                                    # 后端模块
-│   ├── reagent_api.py                          # API 路由
-│   ├── reagent_service.py                       # 业务逻辑
-│   ├── reagent_schemas.py                      # 数据模型
+│   ├── app/                                    # 应用骨架（集成时替换）
+│   │   ├── __init__.py
+│   │   ├── core/                              # 核心模块
+│   │   │   ├── __init__.py
+│   │   │   └── storage.py                     # 文件存储
+│   │   ├── modules/                           # 业务模块
+│   │   │   ├── __init__.py
+│   │   │   └── quality/
+│   │   │       ├── __init__.py
+│   │   │       └── reagent_api.py             # API路由入口
+│   │   └── platform/                          # 平台模块
+│   │       ├── __init__.py
+│   │       ├── database.py                   # 数据库会话
+│   │       └── ai/                            # AI服务
+│   │           ├── __init__.py
+│   │           ├── service.py                  # AI日志服务
+│   │           └── minimax_util.py            # MiniMax工具
+│   ├── reagent_api.py                          # 试剂管理API路由
+│   ├── reagent_service.py                      # 试剂业务逻辑
+│   ├── reagent_schemas.py                      # Pydantic数据模型
 │   ├── ai_config.py                            # AI配置管理
 │   ├── ai_config_api.py                        # AI配置API
 │   ├── ai_log_api.py                          # AI日志API
-│   ├── ai/                                      # AI模块
+│   ├── ai/                                     # AI模块（独立实现）
 │   │   ├── __init__.py
-│   │   ├── models.py                           # AI日志模型
-│   │   └── service.py                          # AI日志服务
-│   ├── alembic/                                # 数据库迁移
+│   │   ├── models.py                          # AI日志模型
+│   │   └── service.py                         # AI日志服务
+│   ├── alembic/                               # 数据库迁移
+│   │   ├── env.py
+│   │   ├── script.py.mako
 │   │   └── versions/
 │   │       ├── 20260609_0001_quality_reagent.py  # 试剂表迁移
 │   │       └── 20260609_0003_ai_config.py        # AI配置表迁移
-│   ├── alembic.ini                             # Alembic配置
-│   └── env.py                                   # 迁移环境配置
-├── frontend/                                   # 前端模块
+│   └── alembic.ini
+├── frontend/                                  # 前端模块
 │   └── src/
 │       ├── actions/
-│       │   └── quality-reagent.ts               # Server Actions
+│       │   └── quality-reagent.ts              # Server Actions
 │       ├── app/
 │       │   └── quality/
 │       │       └── reagent/
 │       │           └── page.tsx                # 试剂管理页面
 │       └── types/
-│           └── reagent-quality.ts               # 类型定义
-└── README.md                                  # 本文件
+│           └── reagent-quality.ts              # 类型定义
+└── README.md
 ```
 
 ## 快速集成
 
-### 一、后端集成
+本模块设计了两种集成方式：
 
-#### 1.1 复制文件
+### 方式一：完整替换（推荐）
+
+将 `backend/app/` 目录下的文件复制到主项目对应位置，覆盖占位符文件：
 
 ```bash
-# 复制 API 文件到你的后端项目
-cp reagent_api.py 你的后端路径/app/modules/quality/
-cp reagent_service.py 你的后端路径/app/modules/quality/
-cp reagent_schemas.py 你的后端路径/app/modules/quality/
+# 复制应用骨架（核心依赖）
+cp -r backend/app/platform/ai/* 你的后端路径/app/platform/ai/
+cp backend/app/platform/database.py 你的后端路径/app/platform/
+cp backend/app/core/storage.py 你的后端路径/app/core/
+
+# 复制试剂管理模块
+cp backend/reagent_api.py 你的后端路径/app/modules/quality/
+cp backend/reagent_service.py 你的后端路径/app/modules/quality/
+cp backend/reagent_schemas.py 你的后端路径/app/modules/quality/
 
 # 复制 AI 配置相关文件
-cp ai_config.py 你的后端路径/app/modules/quality/
-cp ai_config_api.py 你的后端路径/app/modules/v1/
-cp ai_log_api.py 你的后端路径/app/modules/v1/
-mkdir -p 你的后端路径/app/modules/ai
-cp -r ai/* 你的后端路径/app/modules/ai/
+cp backend/ai_config.py 你的后端路径/app/modules/quality/
+cp backend/ai_config_api.py 你的后端路径/app/modules/v1/
+cp backend/ai_log_api.py 你的后端路径/app/modules/v1/
+cp -r backend/ai/* 你的后端路径/app/modules/ai/
 
 # 复制数据库迁移脚本
-cp 20260609_0001_quality_reagent.py 你的后端路径/alembic/versions/
-cp 20260609_0003_ai_config.py 你的后端路径/alembic/versions/
-cp alembic.ini 你的后端路径/
-cp alembic/env.py 你的后端路径/alembic/
-cp alembic/script.py.mako 你的后端路径/alembic/
+cp backend/alembic/versions/* 你的后端路径/alembic/versions/
 ```
 
-#### 1.2 注册路由
+### 方式二：独立模块运行
 
-编辑 `app/modules/__init__.py`，添加：
+后端已内置完整的 `app/` 骨架，可直接运行：
 
-```python
-from .quality.reagent_api import router as reagent_router
+```bash
+cd backend
+uv sync
+uv run uvicorn app.modules.quality.reagent_api:router --reload
 ```
 
-编辑 `app/api/v1/api.py` 或 `app/modules/quality/__init__.py`：
+---
+
+### 一、后端集成
+
+#### 1.1 注册路由
+
+编辑主项目的路由注册文件（通常是 `app/api/v1/api.py` 或 `app/main.py`）：
 
 ```python
 from fastapi import APIRouter
 from app.modules.quality.reagent_api import router as reagent_router
+from app.ai_config_api import router as ai_config_router
+from app.ai_log_api import router as ai_log_router
 
-router = APIRouter()
-router.include_router(reagent_router, prefix="/quality", tags=["质量检验-试剂管理"])
+# 在主 API router 中注册
+api_router = APIRouter()
+api_router.include_router(reagent_router, prefix="/quality", tags=["质量检验-试剂管理"])
+api_router.include_router(ai_config_router)
+api_router.include_router(ai_log_router)
 ```
 
-#### 1.3 运行数据库迁移
+#### 1.2 运行数据库迁移
 
 ```bash
 cd 你的后端项目
 uv run alembic upgrade head
 ```
 
-#### 1.4 配置环境变量
+#### 1.3 配置环境变量
 
 ```env
+# 数据库
+DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/dahzah
+
 # MiniMax AI (AI标签识别功能需要)
 MINIMAX_API_KEY=your_api_key
 MINIMAX_BASE_URL=https://api.minimax.chat

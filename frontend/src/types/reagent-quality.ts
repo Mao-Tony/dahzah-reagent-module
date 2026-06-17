@@ -70,15 +70,14 @@ export interface UpdateReagentRequest {
   status?: string
 }
 
-/** AI识别响应 */
+/** AI识别响应 - 与后端 API 保持一致 */
 export interface AiRecognizeResponse {
   reagent_name: string | null
   lot_no: string | null
+  content: string | null
   manufacturer: string | null
   production_date: string | null
   expiration_date: string | null
-  category: string | null
-  content: string | null
   specification: string | null
   confidence: number
 }
